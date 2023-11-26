@@ -1,0 +1,8 @@
+// bootstrap 所需功能
+@import "../../node_modules/bootstrap/scss/functions";
+
+// 自定義套件
+@import "./stylesheet/variables";
+
+// bootstrap本身
+@import "../../node_modules/bootstrap/scss/bootstrap.scss";
