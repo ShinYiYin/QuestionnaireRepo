@@ -10,15 +10,26 @@ const router = createRouter({
       component: () => import('../views/front/List.vue')
     },
     {
+      path: '/ans',
+      name: 'ans',
+      component: () => import('../views/front/Ans.vue')
+    },
+    {
+      path: '/questionnaire2',
+      name: 'questionnaire2',
+      component: () => import('../views/back/Questionnaire2.vue')
+    },
+    {
       path: '/questionnaire',
       name: 'questionnaire',
       component: () => import('../views/back/Questionnaire.vue')
     },
     {
-      path: '/classmate',
-      name: 'classmate',
-      component: () => import('/classmate.vue')
-    }
+      path: '/questionnaire1',
+      name: 'questionnaire1',
+      component: () => import('../views/back/Questionnaire1.vue')
+    },
+    
   ]
 })
 
