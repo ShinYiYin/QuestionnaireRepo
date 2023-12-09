@@ -4,10 +4,7 @@ import axios from 'axios';
 export default {
     data() {
         return {
-            //分頁用
-            perpage: 10, //一頁的資料數
-            currentPage: 1,
-            flag: 0, //彈框顯示及隱藏
+            page: 0, //彈框顯示及隱藏
             searchFlag: false,
             postflag: false,
             state: 'add', //紀錄建立"add"、編輯"edit"
@@ -52,20 +49,6 @@ export default {
             qnList: [], //存放後端回傳的問卷物件 (可放置多個問卷)
             quList: [], //存放後端回傳的問題物件（可放置多個問題）
         };
-    },
-    computed: {
-        totalPage() {
-            return Math.ceil(this.qnList.length / this.perpage)
-            //Math.ceil()取最小整數
-        },
-        pageStart() {
-            return (this.currentPage - 1) * this.perpage
-            //取得該頁第一個值的index
-        },
-        pageEnd() {
-            return this.currentPage * this.perpage
-            //取得該頁最後一個值的index
-        }
     },
     mounted() {
         this.getQnList(); //重新加載頁面時，獲取問卷
@@ -119,7 +102,7 @@ export default {
             }
         },
         setQn(type, qn) { //建立或編輯問卷 qn從v-for="(qn, index) in qnList"來的
-            this.flag = 1;
+            this.page = 1;
             this.state = type; //建立或編輯的狀態變更
             if (this.state == 'add') {
                 this.obj.questionnaire = {}; //建立時，欄位一開始應為空
@@ -135,7 +118,7 @@ export default {
             }
         },
         setQu(type) { // 題目彈框顯示
-            this.flag = 2;
+            this.page = 2;
             this.nextState = type;
             if (this.nextState == 'add') {
                 this.obj.question_list = []; //建立時，欄位一開始應為空
@@ -157,9 +140,7 @@ export default {
             console.log(this.obj.question_list)
             this.newQu = {};  //清空前次輸入內容
         },
-        submit(status) { //加入或編輯問卷的傳入資料庫
-            this.obj.questionnaire.published = status;
-            console.log(this.obj)
+        submit() { //加入或編輯問卷的傳入資料庫
             this.obj.question_list.forEach(item => {
                 if (item.optionType == 'text') {
                     item.option = "請回答"
@@ -193,30 +174,30 @@ export default {
                     console.log(err);
                 })
             }
-            this.postflag = false;
-            this.flag = 0;
+            // this.postflag = false;
+            this.page = 0;
             this.obj = {}; //清空前次輸入內容??
             // this.getQnList() //送出後，重新撈問卷列表(測試中)
         },
         postTo(qn) {
             this.postflag = true; //顯示發布確認頁
-            // this.obj.questionnaire = JSON.parse(JSON.stringify(qn));
+            this.obj.questionnaire = JSON.parse(JSON.stringify(qn));
         },
-        // publishedTo(status) {
-        //     this.obj.questionnaire.published = status;
-        //     console.log(this.obj)
-
-        //     axios.post('http://localhost:8080/api/quiz/update', this.obj).then(res => {
-        //         console.log(res);
-        //         let code = res.data.rtnCode;
-        //         if (code == 'SUCCESSFUL') {
-        //             this.getQnList()
-        //         }
-        //     }).catch(err => {
-        //         console.log(err);
-        //     })
-        //     this.postflag = false;
-        // },
+        publishedTo(status) {
+            this.obj.questionnaire.published = status;
+            console.log(this.obj)
+            
+            axios.post('http://localhost:8080/api/quiz/update', this.obj).then(res => {
+                console.log(res);
+                let code = res.data.rtnCode;
+                if (code == 'SUCCESSFUL') {
+                    this.getQnList()
+                }
+            }).catch(err => {
+                console.log(err);
+            })
+            this.postflag = false;
+        },
         delQn(qn) { //刪除問卷
             this.delflag = true; //刪除彈框顯示
             this.delType = 'questionnaire'; //當前為刪除問卷
@@ -262,12 +243,6 @@ export default {
         delOp(opIndex) { //未使用到!
             this.opList.splice(opIndex, 1);
         },
-        setPage(page) {
-            if (page <= 0 || page > this.totalPage) {
-                return
-            }
-            this.currentPage = page
-        }
     },
 };
 </script>
@@ -295,21 +270,20 @@ export default {
 
     <!-- 問卷列表 -->
     <div class="table">
-        <table cellpadding="2" style="width:80%">
+        <table cellpadding="5" style="width:80%">
             <thead>
                 <tr>
                     <th width="6%"><input type="checkbox" name="" id=""></th>
                     <th width="6%">編號</th>
                     <th width="29%">問卷標題</th>
                     <th width="8%">狀態</th>
-                    <th width="15%">開始時間</th>
-                    <th width="15%">結束時間</th>
+                    <th width="13%">開始時間</th>
+                    <th width="13%">結束時間</th>
                     <th width="6%">結果</th>
-                    <th width="15%">操作</th>
+                    <th width="19%">操作</th>
                 </tr>
             </thead>
-            <!-- <tbody v-for="(qn, index) in qnList" :key="qn.id"> -->
-            <tbody v-for="(qn, index) in qnList.slice(pageStart, pageEnd)" :key="qn.id">
+            <tbody v-for="(qn, index) in qnList" :key="qn.id">
                 <tr>
                     <td><input type="checkbox" name="" id=""></td>
                     <td>{{ qn.id }}</td> <!-- {{ index + 1 }}-->
@@ -319,40 +293,24 @@ export default {
                     <td>{{ qn.endDate }}</td>
                     <td><a href="">前往</a></td>
                     <td>
-                        <button class="delete btn" @click="delQn(qn)"><i
+                        <button class="delete btn" @click="delQn(qn)" :disabled="qn.published == true"><i
                                 class="fa-solid fa-trash-can"></i></button>
                         <button class="edit btn" @click="setQn('edit', qn)"><i
                                 class="fa-solid fa-pen-to-square"></i></button>
-                        <!-- <button class="post btn" @click="postTo(qn)"><i
-                                class="fa-solid fa-arrow-up-from-bracket"></i></button> -->
+                        <button class="post btn" @click="postTo(qn)"><i
+                                class="fa-solid fa-arrow-up-from-bracket"></i></button>
                     </td>
                 </tr>
             </tbody>
         </table>
     </div>
-    <!-- 分頁 -->
-    <ul class="pagination" v-if="flag == 0">
-        <li class="page-item" @click.prevent="setPage(currentPage - 1)">
-            <a class="page-link" href="#" aria-label="Previous">
-                <span aria-hidden="true">&laquo;</span>
-            </a>
-        </li>
-        <li class="page-item" :class="{ 'active': (currentPage === (n)) }" v-for="(n, index) in totalPage" :key="index"
-            @click.prevent="setPage(n)">
-            <a class="page-link" href="#">{{ n }}</a>
-        </li>
-        <li class="page-item" @click.prevent="setPage(currentPage + 1)">
-            <a class="page-link" href="#" aria-label="Next">
-                <span aria-hidden="true">&raquo;</span>
-            </a>
-        </li>
-    </ul>
+
     <!-- 建立問卷彈框 -->
-    <div class="layer" v-if="flag == 1">
+    <div class="layer" v-if="page == 1">
         <div class="mask">
             <div class="head">
                 <span>{{ state == 'add' ? '新建問卷' : '編輯問卷' }}</span>
-                <button class="clBtn" @click="flag = 0, obj.questionnaire = {}"><i
+                <button class="clBtn" @click="page = 0, obj.questionnaire = {}"><i
                         class="fa-solid fa-circle-xmark"></i></button>
             </div>
             <div class="content">
@@ -365,7 +323,7 @@ export default {
                 <label for="">結束時間</label>
                 <input class="date" type="date" name="" id="" v-model="obj.questionnaire.endDate">
                 <br>
-                <button class="btn" @click="flag = 0, obj.questionnaire = {}">取消</button>
+                <button class="btn" @click="page = 0, obj.questionnaire = {}">取消</button>
                 <button class="btn" @click="setQu(nextState)"
                     :disabled="!obj.questionnaire.title || !obj.questionnaire.description || !obj.questionnaire.startDate || !obj.questionnaire.endDate">下一步</button>
                 <!-- :disabled 當新增或編輯內容為空時，下一步按鈕禁用 -->
@@ -375,7 +333,7 @@ export default {
 
 
     <!-- 建立題目 -->
-    <div class="quLayer" v-if="flag == 2">
+    <div class="quLayer" v-if="page == 2">
         <div class="mask">
             <button class="add btn" @click="createQu()">新增問題</button>
             <div class="question" v-for="(qu, quIndex) in obj.question_list" :key="quIndex">
@@ -398,9 +356,9 @@ export default {
                 <button class="delete btn" type="button" @click="delQu(qu)"><i class="fa-solid fa-trash-can"></i></button>
             </div>
             <div class="btnArea">
-                <button class="btn" @click="flag = 0">取消</button>
+                <button class="btn" @click="page = 0">取消</button>
                 <button class="btn" @click="setQn()">上一頁</button>
-                <button class="btn" @click="postTo()">儲存</button>
+                <button class="btn" @click="submit()">儲存</button>
             </div>
         </div>
     </div>
@@ -413,8 +371,8 @@ export default {
             </div>
             <p>是否發布？</p>
             <div class="btnArea">
-                <button class="btn" @click="submit(false)">暫不發佈</button>
-                <button type="button" class="btn" @click="submit(true)">發佈</button>
+                <button class="btn" @click="publishedTo(false)">暫不發佈</button>
+                <button type="button" class="btn" @click="publishedTo(true)">發佈</button>
             </div>
 
         </div>
@@ -460,7 +418,7 @@ export default {
     // max-width: 1260px;
     width: auto;
     height: 25vh;
-    margin: 0% 10% 1%;
+    margin: 1% 10%;
     padding: 2% 5%;
     background-color: #F7FBFC;
     border-radius: 10px;
@@ -614,12 +572,6 @@ input {
     }
 }
 
-//分頁
-.pagination {
-    justify-content: center;
-}
-
-
 //建立問卷彈框
 .layer {
     width: 100%;
@@ -726,12 +678,10 @@ input {
     padding: 2% 10%;
 
     .mask {
-        margin-top: 5%;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-
 
         .question {
             padding: 10px;

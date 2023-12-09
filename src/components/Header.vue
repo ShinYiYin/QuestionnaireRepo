@@ -19,24 +19,28 @@ import { RouterLink } from "vue-router";
 div{
     position: fixed;
     top: 0;
-    height: 10vh;
+    height: 9vh;
     width: 100%;
     background-color: #c8dcec;
     padding: 1% 5%;
     box-shadow: 0 0 8px rgba(102, 175, 233, .6);
     display: flex;
-    justify-content: space-between;
+    justify-content: left;
+    z-index: 99999;
 
     span{
-        font-size: 20pt;
+        font-size: 18pt;
         font-weight: 700;
         color: #538cce;
+        margin-right: 800px;
     }
-
 }
 
 i{
-    font-size: 25pt;
+    font-size: 23pt;
     color: #769FCD;
+    margin: 0 20px;
 }
+
+
 </style>

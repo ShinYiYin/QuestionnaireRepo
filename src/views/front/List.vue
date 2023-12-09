@@ -3,6 +3,10 @@ import axios from 'axios';
 export default {
   data() {
     return {
+      //分頁用
+      perpage: 10, //一頁的資料數
+      currentPage: 1,
+      flag: 0, //彈框顯示及隱藏
       searchFlag: false,
       //搜尋用
       getTitle: "",
@@ -10,8 +14,54 @@ export default {
       getStartDate: "",
       getEndDate: "",
       getPublised: false,
+      getQnId: 0, //獲取、新增、刪除題目用（從setQn方法-> this.getQnId = qn.id)
       qnList: [], //存放後端回傳的問卷物件 (可放置多個問卷)
       quList: [], //存放後端回傳的問題物件（可放置多個問題）
+      opList: [],
+      obj: { //單一張問卷與題目組合，前端要輸入的項目,準備要送回給後端的，與input綁定
+        questionnaire: {
+          title: "",
+          description: "",
+          published: false,
+          startDate: "",
+          endDate: ""
+        },
+        question_list: [{
+          quId: 0,
+          qnId: 0,
+          qnTitle: "",
+          optionType: "",
+          necessary: false, //先預設false，要綁定radio
+          option: ""
+        }]
+      },
+      response: { //問卷回饋，要送回給DB
+        user: {
+          name: "",
+          phone_number: "",
+          email: "",
+          age: 0,
+          qnId: 0,
+          qId: 0,
+          ans: ""
+        }
+      },
+      ansList: [],
+      preAns: ""
+    }
+  },
+  computed: {
+    totalPage() {
+      return Math.ceil(this.qnList.length / this.perpage)
+      //Math.ceil()取最小整數
+    },
+    pageStart() {
+      return (this.currentPage - 1) * this.perpage
+      //取得該頁第一個值的index
+    },
+    pageEnd() {
+      return this.currentPage * this.perpage
+      //取得該頁最後一個值的index
     }
   },
   mounted() {
@@ -65,12 +115,41 @@ export default {
         }
       }
     },
+    fillOut(qn) { //獲得點擊該問卷，qn從v-for="(qn, index) in qnList"來的
+      this.flag = 1; //該問卷顯示
+      this.obj.questionnaire = JSON.parse(JSON.stringify(qn)); //將原有問卷資料qn給予obj。序列化 深拷貝(可以在不影響原始數據情况下進行修改和操作) 
+      this.getQnId = qn.id //點選該問卷編輯按鈕以獲得問卷id，目的：給予撈該問卷的題目用
+      console.log(this.getQnId)
+
+      const result = this.getQuList();
+      result.then(() => {
+        this.obj.question_list = JSON.parse(JSON.stringify(this.quList)); //將原有從後端獲取的quList給予obj.question_list。序列化 深拷貝(可以在不影響原始數據情况下進行修改和操作)
+        console.log(this.obj.question_list)
+        this.splitOp(); //將選項切割
+      });
+    },
+    splitOp() {
+      this.obj.question_list.forEach(item => {
+        this.opList.push(item.option.split(';'))
+      })
+      console.log(this.opList)
+    },
+    setPage(page) {
+      if (page <= 0 || page > this.totalPage) {
+        return
+      }
+      this.currentPage = page
+    },
+    sendAns() {
+    this.ansList.push(this.preAns)
+      console.log(this.ansList)
+    }
   },
 }
 </script>
 
 <template>
-  <!-- 功能：建立問卷 -->
+  <!-- 功能：搜尋 -->
   <div class="addModule">
     <button class="searchBtn btn" @click="searchQn()"><i class="fa-solid fa-magnifying-glass"></i></button>
   </div>
@@ -91,7 +170,7 @@ export default {
 
   <!-- 問卷列表 -->
   <div class="table">
-    <table cellpadding="5" style="width:80%">
+    <table cellpadding="2" style="width:80%">
       <thead>
         <tr>
           <th width="6%">編號</th>
@@ -103,25 +182,94 @@ export default {
           <th width="6%">結果</th>
         </tr>
       </thead>
-      <tbody v-for="(qn, index) in qnList" :key="qn.id" >
+      <!-- <tbody v-for="(qn, index) in qnList" :key="qn.id"> -->
+      <tbody v-for="(qn, index) in qnList.slice(pageStart, pageEnd)" :key="qn.id">
         <tr>
           <td>{{ qn.id }}</td> <!-- {{ index + 1 }}-->
           <td>{{ qn.title }}</td>
           <td>{{ getStatus(qn.published, qn.startDate, qn.endDate) }}</td>
           <td>{{ qn.startDate }}</td>
           <td>{{ qn.endDate }}</td>
-          <td><RouterLink to="/ans" class="edit btn"><i class="fa-solid fa-pen"></i></RouterLink></td>
+          <td>
+            <!-- <RouterLink to="/ans" class="edit btn"><i class="fa-solid fa-pen"></i></RouterLink> -->
+            <button class="edit btn" @click="fillOut(qn)"><i class="fa-solid fa-pen"></i></button>
+          </td>
           <td><button class="edit btn" @click=""><i class="fa-solid fa-chart-simple"></i></button></td>
         </tr>
       </tbody>
     </table>
+  </div>
+  <!-- 分頁 -->
+  <ul class="pagination" v-if="flag == 0">
+    <li class="page-item" @click.prevent="setPage(currentPage - 1)">
+      <a class="page-link" href="#" aria-label="Previous">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
+    <li class="page-item" :class="{ 'active': (currentPage === (n)) }" v-for="(n, index) in totalPage" :key="index"
+      @click.prevent="setPage(n)">
+      <a class="page-link" href="#">{{ n }}</a>
+    </li>
+    <li class="page-item" @click.prevent="setPage(currentPage + 1)">
+      <a class="page-link" href="#" aria-label="Next">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+  </ul>
+  <!-- 填寫問卷 -->
+  <div class="userflag" v-if="flag == 1">
+    <div class="questionnaire">
+      <p class="date">{{ obj.questionnaire.startDate }} ~ {{ obj.questionnaire.endDate }}</p>
+      <div class="center">
+        <p class="title">{{ obj.questionnaire.title }}</p>
+        <p class="description">{{ obj.questionnaire.description }}</p>
+      </div>
+    </div>
+    <div class="infoArea">
+      <p class="infoTitle">基本資料</p>
+      <div class="info">
+        <div class="list">
+          <label for="姓名">姓名：</label>
+          <input type="text" name="" id="姓名" v-model="response.user.name">
+          <label for="年齡">年齡：</label>
+          <input type="text" name="" id="年齡" v-model="response.user.age">
+        </div>
+        <div class="list">
+          <label for="電話">電話：</label>
+          <input type="tel" name="" id="電話" v-model="response.user.phone_number">
+          <label for="信箱">信箱：</label>
+          <input type="email" name="" id="信箱" v-model="response.user.email">
+        </div>
+      </div>
+    </div>
+    <div class="questionArea">
+      <!-- <p class="quTitle">題目</p> -->
+      <div class="question" v-for="(qu, quIndex) in obj.question_list" :key="qu.id">
+        <div class="top">
+          <span class="quId">{{ qu.quId }}{{ '.' }}</span>
+          <span class="qnTitle">{{ qu.qnTitle }}</span>
+        </div>
+        <div class="content" v-for="(opArr, opArrIndex) in opList">
+          <div v-for="(op, opIndex) in opArr" v-if="(opArrIndex + 1) == qu.quId">
+            <input type="radio" name="single" :id="'answer_' + opIndex" :value="op" v-if="qu.optionType == 'single'" v-model="preAns">
+            <input type="checkbox" name="multi" :id="'answer_' + opIndex" :value="op" v-if="qu.optionType == 'multi'" v-model="preAns">
+            <label :for="'answer_' + opIndex" v-if="qu.optionType != 'text'">{{ op }}</label>
+            <textarea name="" id="" cols="15" rows="2" v-if="qu.optionType == 'text'" v-model="preAns"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="btnArea">
+      <button class="btn" @click="flag = 0">取消</button>
+      <button class="btn" @click="sendAns()">送出</button>
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
 // 建立問卷
 .addModule {
-  height: 10vh;
+  height: 8vh;
   margin: 0% 10% auto;
   display: flex;
   justify-content: space-between;
@@ -141,7 +289,7 @@ export default {
   // max-width: 1260px;
   width: auto;
   height: 25vh;
-  margin: 1% 10%;
+  margin: 0% 10% 1%;
   padding: 2% 5%;
   background-color: #F7FBFC;
   border-radius: 10px;
@@ -279,14 +427,148 @@ input {
     font-size: 15px;
   }
 
-  .delete {
-    background-color: #CE5A67;
-    margin: 0 5%;
-  }
-
   .edit {
     background-color: #5a85ce;
     margin: 0 5%;
+  }
+}
+
+//分頁
+.pagination {
+  justify-content: center;
+}
+
+//填寫問卷
+.userflag {
+  width: 100%;
+  height: 100vh;
+  background-color: #D6E6F2;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow-y: auto;
+  padding: 2% 10%;
+
+  .questionnaire {
+    width: auto;
+    margin: 1% 10%;
+    color: #538cce;
+    font-size: large;
+    font-weight: bolder;
+    display: flex;
+    flex-direction: column;
+
+    .date {
+      margin-left: auto;
+      margin-bottom: 1%;
+      color: #769fcdb0;
+    }
+
+    .center {
+      padding: 2% 2%;
+      background-color: #F7FBFC;
+      border-radius: 10px;
+      text-align: center;
+
+      .title {
+        font-size: larger;
+        font-weight: 700;
+      }
+
+      .description {
+        color: #769fcdb0;
+      }
+    }
+  }
+
+  .infoArea {
+    width: auto;
+    margin: 1% 10%;
+    color: #538cce;
+    font-size: large;
+    font-weight: bolder;
+    display: flex;
+    flex-direction: column;
+    padding: 2% 2%;
+    background-color: #F7FBFC;
+    border-radius: 10px;
+    text-align: center;
+
+    .infoTitle {
+      margin-right: auto;
+      margin-bottom: 10px;
+    }
+
+    .info {
+      width: 100%;
+      display: flex;
+      padding: 20px;
+      box-shadow: inset 0 0 8px rgba(102, 175, 233, .3);
+      border-radius: 10px;
+
+      .list {
+        width: 100%;
+        list-style: none;
+      }
+
+      input {
+        margin: 5px 5px;
+        width: 70%;
+      }
+    }
+  }
+
+  .questionArea {
+    width: auto;
+    margin: 1% 10%;
+    padding: 2% 2%;
+    color: #538cce;
+    font-size: large;
+    font-weight: bolder;
+    display: flex;
+    flex-direction: column;
+    background-color: #F7FBFC;
+    border-radius: 10px;
+    text-align: center;
+
+    .quTitle {
+      margin-right: auto;
+      margin-bottom: 10px;
+    }
+
+    .question {
+      background-color: #F7FBFC;
+      padding: 20px;
+      box-shadow: inset 0 0 8px rgba(102, 175, 233, .3);
+      border-radius: 10px;
+      margin: 10px 0;
+      display: flex;
+      flex-direction: column;
+
+
+      .top {
+        margin-right: auto;
+
+        .quId {
+          margin-right: 10px;
+        }
+      }
+
+      .content {
+        margin-right: auto;
+      }
+    }
+  }
+
+  .btnArea {
+    padding: 0 30%;
+    display: flex;
+    justify-content: space-around;
+
+    .btn {
+      width: 100px;
+      margin: 10px;
+    }
   }
 }
 </style>
