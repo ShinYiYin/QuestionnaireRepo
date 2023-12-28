@@ -1,5 +1,4 @@
 <script>
-import { end } from '@popperjs/core';
 import axios from 'axios';
 export default {
     data() {
@@ -233,6 +232,7 @@ export default {
         },
         delSubmit() {  //刪除問卷的提交
             if (this.delType == 'questionnaire') {
+                console.log(this.delList)
                 axios.post('http://localhost:8080/api/quiz/deleteQuestionnaire', this.delList).then(res => {
                     console.log(res);
                     let code = res.data.rtnCode;
@@ -267,6 +267,12 @@ export default {
                 return
             }
             this.currentPage = page
+        },
+        goToFeedback(qnId) {
+            this.$router.push({ name: 'feedback', params: { qnId } });
+        },
+        goToStatstics(qnId) {
+            this.$router.push({ name: 'statistics', params: { qnId } });
         }
     },
 };
@@ -298,30 +304,37 @@ export default {
         <table cellpadding="2" style="width:80%">
             <thead>
                 <tr>
-                    <th width="6%"><input type="checkbox" name="" id=""></th>
+                    <!-- <th width="6%"><input type="checkbox" name="" id=""></th> -->
                     <th width="6%">編號</th>
-                    <th width="29%">問卷標題</th>
+                    <th width="30%">問卷標題</th>
                     <th width="8%">狀態</th>
-                    <th width="15%">開始時間</th>
-                    <th width="15%">結束時間</th>
-                    <th width="6%">結果</th>
-                    <th width="15%">操作</th>
+                    <th width="12%">開始時間</th>
+                    <th width="12%">結束時間</th>
+                    <th width="7%">回饋</th>
+                    <th width="7%">結果</th>
+                    <th width="12%">操作</th>
                 </tr>
             </thead>
             <!-- <tbody v-for="(qn, index) in qnList" :key="qn.id"> -->
             <tbody v-for="(qn, index) in qnList.slice(pageStart, pageEnd)" :key="qn.id">
                 <tr>
-                    <td><input type="checkbox" name="" id=""></td>
+                    <!-- <td><input type="checkbox" name="" id=""></td> -->
                     <td>{{ qn.id }}</td> <!-- {{ index + 1 }}-->
                     <td>{{ qn.title }}</td>
-                    <td>{{ getStatus(qn.published, qn.startDate, qn.endDate) }}</td>
+                    <td :class="{ 'textColor': getStatus(qn.published, qn.startDate, qn.endDate) == '已結束','onGoingtextColor': getStatus(qn.published, qn.startDate, qn.endDate) == '進行中'}">{{
+                        getStatus(qn.published, qn.startDate, qn.endDate) }}</td>
                     <td>{{ qn.startDate }}</td>
                     <td>{{ qn.endDate }}</td>
-                    <td><a href="">前往</a></td>
+                    <td><button class="feedback btn" @click="goToFeedback(qn.id)"><i
+                                class="fa-solid fa-file-lines"></i></button></td>
+                    <td><button class="feedback btn" @click="goToStatstics(qn.id)"><i
+                                class="fa-solid fa-chart-simple"></i></button></td>
                     <td>
-                        <button class="delete btn" @click="delQn(qn)"><i
+                        <button class="delete btn" @click="delQn(qn)"
+                            :disabled="getStatus(qn.published, qn.startDate, qn.endDate) == '進行中'"><i
                                 class="fa-solid fa-trash-can"></i></button>
-                        <button class="edit btn" @click="setQn('edit', qn)"><i
+                        <button class="edit btn" @click="setQn('edit', qn)"
+                            :disabled="getStatus(qn.published, qn.startDate, qn.endDate) == '進行中' || getStatus(qn.published, qn.startDate, qn.endDate) == '已結束'"><i
                                 class="fa-solid fa-pen-to-square"></i></button>
                         <!-- <button class="post btn" @click="postTo(qn)"><i
                                 class="fa-solid fa-arrow-up-from-bracket"></i></button> -->
@@ -372,7 +385,6 @@ export default {
             </div>
         </div>
     </div>
-
 
     <!-- 建立題目 -->
     <div class="quLayer" v-if="flag == 2">
@@ -593,6 +605,17 @@ input {
         background-color: #F7FBFC;
     }
 
+    tbody {
+        tr {
+            .textColor {
+                color: #a7afb9
+            }
+            .onGoingtextColor{
+                color:#CE5A67
+            }
+        }
+    }
+
     .btn {
         border-radius: 25%;
         font-size: 15px;
@@ -608,7 +631,7 @@ input {
         margin: 0 4%;
     }
 
-    .post {
+    .feedback {
         background-color: #6cc1c1;
         margin: 0 4%;
     }
@@ -820,5 +843,4 @@ input {
             margin: 0 10px;
         }
     }
-}
-</style>
+}</style>

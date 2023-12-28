@@ -1,5 +1,6 @@
 <script>
 import axios from 'axios';
+import { elements } from 'chart.js';
 export default {
   data() {
     return {
@@ -38,7 +39,7 @@ export default {
       response: { //問卷回饋，要送回給DB
         user: {
           name: "",
-          phone_number: "",
+          phoneNumber: "",
           email: "",
           age: 0,
           qnId: 0,
@@ -47,7 +48,10 @@ export default {
         }
       },
       ansList: [],
-      preAns: ""
+      multiAns: {},// 紀錄多選的答案
+      multiAnsList: [],
+      preAns: {}
+
     }
   },
   computed: {
@@ -126,6 +130,7 @@ export default {
         this.obj.question_list = JSON.parse(JSON.stringify(this.quList)); //將原有從後端獲取的quList給予obj.question_list。序列化 深拷貝(可以在不影響原始數據情况下進行修改和操作)
         console.log(this.obj.question_list)
         this.splitOp(); //將選項切割
+        this.initializeMultiAnsArray();
       });
     },
     splitOp() {
@@ -140,9 +145,48 @@ export default {
       }
       this.currentPage = page
     },
-    sendAns() {
-    this.ansList.push(this.preAns)
+    initializeMultiAnsArray() {
+      console.log(this.obj.question_list)
+      this.multiAns = this.quList.map(() => []) //使用map()方法遍历quList的每个元素，对于每个元素都执行一个函数。() => [] 是一个箭头函数，它会返回一个空数组 []。this.multiAns将会是一个与 quList 具有相同长度的数组，其中每个位置都是一个空数组。
+    },
+    updateMultiAns(opArrIndex) {
+      this.ansList[opArrIndex] = this.multiAns[opArrIndex].join("!");
       console.log(this.ansList)
+    },
+    
+    checkAns(){
+      for (let i = 0; i < this.quList.length; i++) {
+        let qu = this.quList[i];
+        let ans = this.ansList[i];
+        let isNecessary = qu.necessary;
+        if (isNecessary == true && ans == null || ans == ""){ //一開始未填寫：null，點選後下一頁返回上頁又取消點選：""
+          alert( `Question ${i+1} 為必填`);
+          return;
+        }
+      }
+      this.flag = 2;
+    },
+    submitAns() {
+      this.response.user.qnId = this.getQnId;
+      this.response.user.ans = this.ansList.join(";");
+      console.log(this.response)
+      axios.post('http://localhost:8080/api/user/create', this.response).then(res => {
+        console.log(res);
+        let code = res.data.rtnCode;
+        if (code == 'SUCCESSFUL') {
+          this.getQnList()
+        }
+      }).catch(err => {
+        console.log(err);
+      })
+      alert("感謝填寫！")
+      this.flag = 0;
+    },
+    goToStatstics(qnId) {
+      this.$router.push({ name: 'statistics', params: { qnId } });
+    },
+    refreshPage() { //取消按鈕重新刷新頁面
+        location.reload();
     }
   },
 }
@@ -187,14 +231,17 @@ export default {
         <tr>
           <td>{{ qn.id }}</td> <!-- {{ index + 1 }}-->
           <td>{{ qn.title }}</td>
-          <td>{{ getStatus(qn.published, qn.startDate, qn.endDate) }}</td>
+          <td :class="{'textColor':getStatus(qn.published, qn.startDate, qn.endDate) === '已結束' || getStatus(qn.published, qn.startDate, qn.endDate) == '尚未開始' }">{{ getStatus(qn.published, qn.startDate, qn.endDate) }}</td>
           <td>{{ qn.startDate }}</td>
           <td>{{ qn.endDate }}</td>
           <td>
             <!-- <RouterLink to="/ans" class="edit btn"><i class="fa-solid fa-pen"></i></RouterLink> -->
-            <button class="edit btn" @click="fillOut(qn)"><i class="fa-solid fa-pen"></i></button>
+            <button class="edit btn" @click="fillOut(qn)"
+              :disabled="getStatus(qn.published, qn.startDate, qn.endDate) == '已結束' || getStatus(qn.published, qn.startDate, qn.endDate) == '尚未開始'"><i
+                class="fa-solid fa-pen"></i></button>
           </td>
-          <td><button class="edit btn" @click=""><i class="fa-solid fa-chart-simple"></i></button></td>
+          <td><button class="edit btn" @click="goToStatstics(qn.id)" :disabled="getStatus(qn.published, qn.startDate, qn.endDate) == '尚未開始'"><i class="fa-solid fa-chart-simple"></i></button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -232,11 +279,11 @@ export default {
           <label for="姓名">姓名：</label>
           <input type="text" name="" id="姓名" v-model="response.user.name">
           <label for="年齡">年齡：</label>
-          <input type="text" name="" id="年齡" v-model="response.user.age">
+          <input type="number" name="" id="年齡" v-model="response.user.age">
         </div>
         <div class="list">
           <label for="電話">電話：</label>
-          <input type="tel" name="" id="電話" v-model="response.user.phone_number">
+          <input type="tel" name="" id="電話" v-model="response.user.phoneNumber">
           <label for="信箱">信箱：</label>
           <input type="email" name="" id="信箱" v-model="response.user.email">
         </div>
@@ -248,20 +295,75 @@ export default {
         <div class="top">
           <span class="quId">{{ qu.quId }}{{ '.' }}</span>
           <span class="qnTitle">{{ qu.qnTitle }}</span>
+          <span v-if="qu.necessary == true" style="color: red; font-size: medium; margin-left: 5px;">*[必填]</span>
         </div>
         <div class="content" v-for="(opArr, opArrIndex) in opList">
           <div v-for="(op, opIndex) in opArr" v-if="(opArrIndex + 1) == qu.quId">
-            <input type="radio" name="single" :id="'answer_' + opIndex" :value="op" v-if="qu.optionType == 'single'" v-model="preAns">
-            <input type="checkbox" name="multi" :id="'answer_' + opIndex" :value="op" v-if="qu.optionType == 'multi'" v-model="preAns">
-            <label :for="'answer_' + opIndex" v-if="qu.optionType != 'text'">{{ op }}</label>
-            <textarea name="" id="" cols="15" rows="2" v-if="qu.optionType == 'text'" v-model="preAns"></textarea>
+            <input type="radio" :name="'single_' + opArrIndex" :id="'answer_' + opArrIndex + '_' + opIndex" :value="op"
+              v-if="qu.optionType === 'single'" v-model="ansList[opArrIndex]">
+            <input type="checkbox" :name="'multi_' + opArrIndex" :id="'answer_' + opArrIndex + '_' + opIndex" :value="op"
+              v-if="qu.optionType === 'multi'" v-model="multiAns[opArrIndex]" @change="updateMultiAns(opArrIndex)">
+            <label :for="'answer_' + opArrIndex + '_' + opIndex" v-if="qu.optionType !== 'text'">{{ op }}</label>
+            <textarea v-if="qu.optionType === 'text'" v-model="ansList[opArrIndex]"></textarea>
           </div>
         </div>
       </div>
     </div>
     <div class="btnArea">
-      <button class="btn" @click="flag = 0">取消</button>
-      <button class="btn" @click="sendAns()">送出</button>
+      <button class="btn" @click="flag = 0, refreshPage()">取消</button>
+      <button class="btn" @click="checkAns()">下一頁</button>
+    </div>
+  </div>
+  <!-- 確認頁 -->
+  <div class="userflag" v-if="flag == 2">
+    <div class="questionnaire">
+      <p class="date">{{ obj.questionnaire.startDate }} ~ {{ obj.questionnaire.endDate }}</p>
+      <div class="center">
+        <p class="title">{{ obj.questionnaire.title }}</p>
+        <p class="description">{{ obj.questionnaire.description }}</p>
+      </div>
+    </div>
+    <div class="infoArea">
+      <p class="infoTitle">基本資料</p>
+      <div class="info">
+        <div class="list">
+          <label for="姓名">姓名：</label>
+          <input type="text" name="" id="姓名" v-model="response.user.name" disabled>
+          <label for="年齡">年齡：</label>
+          <input type="number" name="" id="年齡" v-model="response.user.age" disabled>
+        </div>
+        <div class="list">
+          <label for="電話">電話：</label>
+          <input type="tel" name="" id="電話" v-model="response.user.phoneNumber" disabled>
+          <label for="信箱">信箱：</label>
+          <input type="email" name="" id="信箱" v-model="response.user.email" disabled>
+        </div>
+      </div>
+    </div>
+    <div class="questionArea">
+      <!-- <p class="quTitle">題目</p> -->
+      <div class="question" v-for="(qu, quIndex) in obj.question_list" :key="qu.id">
+        <div class="top">
+          <span class="quId">{{ qu.quId }}{{ '.' }}</span>
+          <span class="qnTitle">{{ qu.qnTitle }}</span>
+          <span v-if="qu.necessary == true" style="color: red; font-size: medium; margin-left: 5px;">*[必填]</span>
+        </div>
+        <div class="content" v-for="(opArr, opArrIndex) in opList">
+          <div v-for="(op, opIndex) in opArr" v-if="(opArrIndex + 1) == qu.quId">
+            <input type="radio" :name="'single_' + opArrIndex" :id="'answer_' + opArrIndex + '_' + opIndex" :value="op"
+              v-if="qu.optionType === 'single'" v-model="ansList[opArrIndex]" disabled>
+            <input type="checkbox" :name="'multi_' + opArrIndex" :id="'answer_' + opArrIndex + '_' + opIndex" :value="op"
+              v-if="qu.optionType === 'multi'" v-model="multiAns[opArrIndex]" @change="updateMultiAns(opArrIndex)"
+              disabled>
+            <label :for="'answer_' + opArrIndex + '_' + opIndex" v-if="qu.optionType !== 'text'">{{ op }}</label>
+            <textarea v-if="qu.optionType === 'text'" v-model="ansList[opArrIndex]" disabled></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="btnArea">
+      <button class="btn" @click="flag = 1">上一頁</button>
+      <button class="btn" @click="submitAns">送出</button>
     </div>
   </div>
 </template>
@@ -402,6 +504,14 @@ input {
   table {
     width: 80%;
     border-collapse: collapse;
+
+    tbody{
+      tr{
+        .textColor{
+          color:#a7afb9
+        }
+      }
+    }
   }
 
   th,

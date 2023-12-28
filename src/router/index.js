@@ -34,7 +34,16 @@ const router = createRouter({
       name: 'questionnaire2-1',
       component: () => import('../views/back/Questionnaire2-1.vue')
     },
-    
+    {
+      path: "/feedback/:qnId",
+      name: "feedback",
+      component: () => import('../views/Feedback.vue'),
+    },
+    {
+      path: "/statistics/:qnId",
+      name: "statistics",
+      component: () => import('../views/Statistics.vue'),
+    },
   ]
 })
 
