@@ -7,7 +7,7 @@ import { RouterLink } from "vue-router";
     <div>
         <span>問卷調查系統</span>
         <RouterLink to="/"><i class="fa-solid fa-house"></i></RouterLink>
-        <RouterLink to="/questionnaire2"><i class="fa-solid fa-gear"></i></RouterLink>
+        <RouterLink to="/questionnaire_back"><i class="fa-solid fa-gear"></i></RouterLink>
     </div>
     
     
